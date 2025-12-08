@@ -3,44 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Найди Дубль 👑 Конкурс Красоты</title>
+    <title>🦄 Новогодний Единорог</title>
     <style>
         body {
             margin: 0;
             padding: 15px;
             font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #ff9a9e, #fecfef, #fad0c4);
+            background: linear-gradient(180deg, #1e3c72 0%, #2a5298 50%, #0f3460 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            overflow: hidden;
             touch-action: manipulation;
         }
         canvas {
-            border: 4px solid #ffd1dc;
-            border-radius: 25px;
-            background: linear-gradient(45deg, #fff0f5, #ffe4e1);
-            box-shadow: 0 15px 35px rgba(255,182,193,0.4);
+            border: 4px solid #ffd700;
+            border-radius: 20px;
+            background: linear-gradient(45deg, #e0f7fa, #f0f8ff);
+            box-shadow: 0 15px 35px rgba(255,215,0,0.4);
             max-width: 95vw;
-            max-height: 75vh;
-            touch-action: manipulation;
+            max-height: 85vh;
+            touch-action: pan-y;
         }
         .ui {
             margin: 10px 0;
-            font-size: 14px;
+            font-size: 18px;
             font-weight: bold;
-            color: #c71585;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
             display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
+            gap: 25px;
         }
         .stats {
-            background: rgba(255,255,255,0.9);
-            padding: 8px 15px;
-            border-radius: 15px;
-            box-shadow: 0 4px 12px rgba(255,105,180,0.3);
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
         }
         .game-over {
             position: absolute;
@@ -48,291 +47,324 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: rgba(255,255,255,0.95);
-            padding: 30px;
+            padding: 35px;
             border-radius: 25px;
             text-align: center;
-            font-size: 24px;
+            font-size: 26px;
             color: #dc143c;
-            border: 4px solid #ff69b4;
-            box-shadow: 0 10px 25px rgba(220,20,60,0.3);
+            border: 4px solid #ffd700;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
         }
         button {
-            background: linear-gradient(45deg, #ff69b4, #ff1493);
-            color: white;
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            color: #fff;
             border: none;
-            padding: 12px 25px;
-            font-size: 18px;
+            padding: 15px 30px;
+            font-size: 20px;
             border-radius: 25px;
             cursor: pointer;
-            margin-top: 15px;
-            box-shadow: 0 6px 15px rgba(255,105,180,0.4);
+            margin-top: 20px;
             font-weight: bold;
+            box-shadow: 0 8px 25px rgba(255,107,107,0.4);
         }
-        button:hover, button:active {
-            background: linear-gradient(45deg, #ff1493, #ff69b4);
-            transform: translateY(-1px);
+        button:hover {
+            transform: scale(1.05);
         }
     </style>
 </head>
 <body>
     <div class="ui">
-        <div class="stats">⭐ Баллы: <span id="score">0</span></div>
-        <div class="stats">⏱️ Время: <span id="time">0</span>с</div>
-        <div class="stats">👑 Пар: <span id="pairs">0</span>/24</div>
+        <div class="stats">🎁 Очки: <span id="score">0</span></div>
+        <div class="stats">❤️ Жизни: <span id="lives">3</span></div>
     </div>
-    <canvas id="gameCanvas" width="450" height="550"></canvas>
+    <canvas id="gameCanvas" width="380" height="580"></canvas>
     <div id="gameOver" class="game-over" style="display: none;">
-        <div>Победа! 👑✨</div>
-        <div>Финальный счёт: <span id="finalScore">0</span> ⭐</div>
-        <button onclick="restartGame()">Играть снова 👗</button>
+        <div>Игра окончена! ❄️</div>
+        <div>Финальный счёт: <span id="finalScore">0</span> 🎁</div>
+        <button onclick="restartGame()">Играть снова 🦄</button>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
-        const timeEl = document.getElementById('time');
-        const pairsEl = document.getElementById('pairs');
+        const livesEl = document.getElementById('lives');
         const gameOverEl = document.getElementById('gameOver');
         const finalScoreEl = document.getElementById('finalScore');
 
         // Игровое состояние
         let score = 0;
-        let timeElapsed = 0;
+        let lives = 3;
         let gameRunning = true;
-        let grid = [];
-        let selected = [];
-        let tiles = [];
-        let cols = 6;
-        let rows = 8;
-        let tileSize = 78;
-        let timer;
-        let totalPairs = (cols * rows) / 2;
-        let isWaiting = false; // Только ожидание анимации
+        let unicorn = { x: 170, y: 450, width: 50, height: 50, targetX: 170 };
+        let gifts = [];
+        let badItems = [];
+        let snowflakes = [];
+        let particles = [];
+        let touchStartX = 0;
 
-        // Эмодзи для конкурса красоты
-        const beautyEmojis = ['👗', '👠', '💄', '👑', '🌹', '💍', '💅', '⭐', '✨', '💖', '🎀', '👜'];
-
-        // Инициализация сетки
-        function initGrid() {
-            grid = [];
-            tiles = [];
-            const emojis = [];
-            
-            for (let i = 0; i < totalPairs; i++) {
-                const emoji = beautyEmojis[Math.floor(Math.random() * beautyEmojis.length)];
-                emojis.push(emoji, emoji);
-            }
-            
-            for (let i = emojis.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [emojis[i], emojis[j]] = [emojis[j], emojis[i]];
-            }
-            
-            let index = 0;
-            for (let row = 0; row < rows; row++) {
-                grid[row] = [];
-                for (let col = 0; col < cols; col++) {
-                    grid[row][col] = emojis[index++];
-                    tiles.push({
-                        row: row,
-                        col: col,
-                        emoji: grid[row][col],
-                        x: col * tileSize + 12,
-                        y: row * tileSize + 15,
-                        width: tileSize,
-                        height: tileSize,
-                        visible: false,
-                        matched: false
-                    });
-                }
-            }
-        }
-
-        // Звуки
-        function playSound(frequency, duration) {
+        // Новогодняя музыка
+        let audioContext;
+        let musicPlaying = false;
+        
+        function playChristmasMusic() {
+            if (musicPlaying) return;
             try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                oscillator.frequency.value = frequency;
-                oscillator.type = 'sine';
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + duration);
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                musicPlaying = true;
+                
+                // Новогодняя мелодия Jingle Bells
+                const notes = [659, 659, 659, 523, 587, 659, 0, 659, 659, 659, 783, 587, 523, 0];
+                let noteIndex = 0;
+                
+                function playNote() {
+                    if (!gameRunning || !musicPlaying) return;
+                    
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = notes[noteIndex] || 659;
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.4);
+                    
+                    noteIndex = (noteIndex + 1) % notes.length;
+                    setTimeout(playNote, 450);
+                }
+                playNote();
             } catch(e) {}
         }
 
-        // Отрисовка
-        function draw() {
+        // Звуковые эффекты
+        function playSound(frequency, duration) {
+            try {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.frequency.value = frequency;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                osc.start();
+                osc.stop(audioContext.currentTime + duration);
+            } catch(e) {}
+        }
+
+        // Снег
+        function createSnow() {
+            snowflakes.push({
+                x: Math.random() * canvas.width,
+                y: -10,
+                size: Math.random() * 4 + 2,
+                speed: Math.random() * 2 + 0.5,
+                sway: Math.random() * 0.02
+            });
+        }
+
+        // Подарки
+        function createGift() {
+            if (Math.random() < 0.025) {
+                gifts.push({
+                    x: Math.random() * (canvas.width - 35),
+                    y: -35,
+                    emoji: ['🎁', '🎄', '⭐', '🔔'][Math.floor(Math.random() * 4)],
+                    width: 35,
+                    height: 35,
+                    speed: 3 + Math.random() * 2
+                });
+            }
+        }
+
+        // Плохие предметы
+        function createBadItem() {
+            if (Math.random() < 0.015) {
+                badItems.push({
+                    x: Math.random() * (canvas.width - 35),
+                    y: -35,
+                    emoji: ['🧨', '🌋', '💥', '🦠'][Math.floor(Math.random() * 4)],
+                    width: 35,
+                    height: 35,
+                    speed: 4 + Math.random() * 2
+                });
+            }
+        }
+
+        // Частицы
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 40,
+                    maxLife: 40,
+                    color
+                });
+            }
+        }
+
+        // Обновление игры
+        function update() {
+            if (!gameRunning) return;
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-            for (let i = 0; i < 20; i++) {
-                ctx.beginPath();
-                ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
 
-            ctx.fillStyle = '#c71585';
-            ctx.font = 'bold 20px Arial';
+            // Фон неба
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#98D8C8');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Снег
+            snowflakes.forEach((snow, i) => {
+                snow.x += Math.sin(snow.y * snow.sway) * 0.5;
+                snow.y += snow.speed;
+                ctx.save();
+                ctx.globalAlpha = 0.8;
+                ctx.font = `${snow.size}px Arial`;
+                ctx.fillText('❄️', snow.x, snow.y);
+                ctx.restore();
+                if (snow.y > canvas.height) snowflakes.splice(i, 1);
+            });
+            if (Math.random() < 0.6) createSnow();
+
+            // Движение единорога (плавное)
+            unicorn.x += (unicorn.targetX - unicorn.x) * 0.25;
+
+            // Единорог 🦄
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 15;
+            ctx.font = '50px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('Найди пару! 👗✨', canvas.width / 2, 12);
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🦄', unicorn.x, unicorn.y);
+            ctx.shadowBlur = 0;
 
-            tiles.forEach(tile => {
-                const x = tile.x;
-                const y = tile.y;
-                
-                ctx.strokeStyle = tile.visible ? '#ffd700' : '#ddd';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(x, y, tile.width, tile.height);
-                
-                if (selected.some(s => s.row === tile.row && s.col === tile.col)) {
-                    ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-                    ctx.fillRect(x + 4, y + 4, tile.width - 8, tile.height - 8);
+            // Подарки
+            gifts.forEach((gift, i) => {
+                gift.y += gift.speed;
+                ctx.font = '35px Arial';
+                ctx.fillText(gift.emoji, gift.x, gift.y + 28);
+
+                // Коллизия
+                if (unicorn.x - 25 < gift.x + gift.width &&
+                    unicorn.x + 25 > gift.x &&
+                    unicorn.y < gift.y + gift.height &&
+                    unicorn.y + unicorn.height > gift.y) {
+                    score += 10;
+                    scoreEl.textContent = score;
+                    createParticles(gift.x + 17, gift.y + 17, '#ffd700');
+                    playSound(800, 0.15);
+                    gifts.splice(i, 1);
                 }
-                
-                if (tile.visible || tile.matched) {
-                    ctx.font = '62px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(tile.emoji, x + tile.width / 2, y + tile.height / 2);
-                } else {
-                    ctx.fillStyle = 'rgba(255, 182, 193, 0.85)';
-                    ctx.fillRect(x + 8, y + 8, tile.width - 16, tile.height - 16);
-                    ctx.fillStyle = '#ffd700';
-                    ctx.font = '52px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('⭐', x + tile.width / 2, y + tile.height / 2);
-                }
+                if (gift.y > canvas.height) gifts.splice(i, 1);
             });
+
+            // Плохие предметы
+            badItems.forEach((bad, i) => {
+                bad.y += bad.speed;
+                ctx.font = '35px Arial';
+                ctx.fillText(bad.emoji, bad.x, bad.y + 28);
+
+                // Коллизия
+                if (unicorn.x - 25 < bad.x + bad.width &&
+                    unicorn.x + 25 > bad.x &&
+                    unicorn.y < bad.y + bad.height &&
+                    unicorn.y + unicorn.height > bad.y) {
+                    lives--;
+                    livesEl.textContent = lives;
+                    createParticles(bad.x + 17, bad.y + 17, '#ff4500');
+                    playSound(250, 0.3);
+                    badItems.splice(i, 1);
+                    if (lives <= 0) endGame();
+                }
+                if (bad.y > canvas.height) badItems.splice(i, 1);
+            });
+
+            // Частицы
+            particles.forEach((p, i) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                ctx.save();
+                ctx.globalAlpha = p.life / p.maxLife;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 5, 5);
+                ctx.restore();
+                if (p.life <= 0) particles.splice(i, 1);
+            });
+
+            // Создание объектов
+            createGift();
+            createBadItem();
+
+            requestAnimationFrame(update);
         }
 
-        // Закрыть все НЕсовпавшие карточки
-        function closeUnmatched() {
-            tiles.forEach(tile => {
-                if (!tile.matched) tile.visible = false;
-            });
-        }
+        // Сенсорное управление (свайп)
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            touchStartX = e.touches[0].clientX;
+        });
 
-        // Обработка клика - мгновенная!
-        function handleClick(clientX, clientY) {
-            if (!gameRunning || isWaiting || selected.length >= 2) return;
-            
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!touchStartX) return;
+            const touchX = e.touches[0].clientX;
             const rect = canvas.getBoundingClientRect();
-            const x = clientX - rect.left;
-            const y = clientY - rect.top;
-            
-            const col = Math.floor(x / tileSize);
-            const row = Math.floor((y - 15) / tileSize);
-            
-            if (col >= 0 && col < cols && row >= 0 && row < rows) {
-                const tile = tiles.find(t => t.row === row && t.col === col);
-                if (tile && !tile.matched && !tile.visible) {
-                    // Открываем новую карточку
-                    tile.visible = true;
-                    selected.push({row, col});
-                    draw();
-                    
-                    if (selected.length === 2) {
-                        // МГНОВЕННАЯ проверка без задержек!
-                        checkMatchImmediately();
-                    }
-                }
-            }
-        }
+            const canvasX = touchX - rect.left;
+            unicorn.targetX = Math.max(25, Math.min(canvas.width - 25, canvasX));
+        });
 
-        // МГНОВЕННАЯ проверка совпадения
-        function checkMatchImmediately() {
-            const tile1 = tiles.find(t => t.row === selected[0].row && t.col === selected[0].col);
-            const tile2 = tiles.find(t => t.row === selected[1].row && t.col === selected[1].col);
-            
-            if (tile1.emoji === tile2.emoji) {
-                // СОВПАДАЮТ - оставляем открытыми!
-                tile1.matched = true;
-                tile2.matched = true;
-                score += Math.max(50, 100 - (timeElapsed * 0.5));
-                scoreEl.textContent = Math.floor(score);
-                playSound(800, 0.2);
-                selected = [];
-                updatePairs();
-                checkWin();
-            } else {
-                // НЕ совпадают - показываем анимацию 400мс
-                playSound(200, 0.3);
-                isWaiting = true;
-                setTimeout(() => {
-                    closeUnmatched();
-                    selected = [];
-                    isWaiting = false;
-                    draw();
-                }, 400);
-            }
-        }
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            touchStartX = 0;
+        });
 
-        // Обновление счётчика пар
-        function updatePairs() {
-            const matchedCount = tiles.filter(tile => tile.matched).length / 2;
-            pairsEl.textContent = matchedCount;
-        }
-
-        // Проверка победы
-        function checkWin() {
-            const matchedCount = tiles.filter(tile => tile.matched).length / 2;
-            if (matchedCount === totalPairs) {
-                score += Math.max(500, 1000 - (timeElapsed * 2));
-                scoreEl.textContent = Math.floor(score);
-                endGame();
-            }
-        }
-
-        // Таймер
-        function startTimer() {
-            timer = setInterval(() => {
-                timeElapsed++;
-                timeEl.textContent = timeElapsed;
-            }, 1000);
-        }
+        // Мышь для десктопа
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            unicorn.targetX = Math.max(25, Math.min(canvas.width - 25, e.clientX - rect.left));
+        });
 
         function endGame() {
             gameRunning = false;
-            clearInterval(timer);
-            finalScoreEl.textContent = Math.floor(score);
+            finalScoreEl.textContent = score;
             gameOverEl.style.display = 'block';
+            musicPlaying = false;
         }
 
         function restartGame() {
             score = 0;
-            timeElapsed = 0;
+            lives = 3;
             gameRunning = true;
-            selected = [];
-            isWaiting = false;
+            unicorn.x = 170;
+            unicorn.targetX = 170;
+            gifts = [];
+            badItems = [];
+            snowflakes = [];
+            particles = [];
             scoreEl.textContent = score;
-            timeEl.textContent = timeElapsed;
-            pairsEl.textContent = '0';
+            livesEl.textContent = lives;
             gameOverEl.style.display = 'none';
-            clearInterval(timer);
-            initGrid();
-            draw();
-            startTimer();
+            musicPlaying = false;
+            setTimeout(() => {
+                playChristmasMusic();
+                update();
+            }, 100);
         }
 
-        // События
-        canvas.addEventListener('click', (e) => handleClick(e.clientX, e.clientY));
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            handleClick(touch.clientX, touch.clientY);
-        }, { passive: false });
-
         // Старт игры
-        initGrid();
-        draw();
-        startTimer();
+        playChristmasMusic();
+        update();
     </script>
 </body>
 </html>
