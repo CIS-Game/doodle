@@ -105,10 +105,10 @@
         let tiles = [];
         let cols = 6;
         let rows = 8;
-        let tileSize = 78; // +30% (было 60)
+        let tileSize = 78;
         let timer;
         let totalPairs = (cols * rows) / 2;
-        let isProcessing = false; // Блокировка на время проверки
+        let isWaiting = false; // Только ожидание анимации
 
         // Эмодзи для конкурса красоты
         const beautyEmojis = ['👗', '👠', '💄', '👑', '🌹', '💍', '💅', '⭐', '✨', '💖', '🎀', '👜'];
@@ -170,7 +170,6 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Фон с блеском
             ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
             for (let i = 0; i < 20; i++) {
                 ctx.beginPath();
@@ -178,13 +177,11 @@
                 ctx.fill();
             }
 
-            // Заголовок
             ctx.fillStyle = '#c71585';
             ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('Найди пару! 👗✨', canvas.width / 2, 12);
 
-            // Плитки
             tiles.forEach(tile => {
                 const x = tile.x;
                 const y = tile.y;
@@ -215,38 +212,65 @@
             });
         }
 
-        // Проверка совпадений
-        function checkMatch() {
-            if (selected.length === 2) {
-                const tile1 = tiles.find(t => t.row === selected[0].row && t.col === selected[0].col);
-                const tile2 = tiles.find(t => t.row === selected[1].row && t.col === selected[1].col);
-                
-                if (tile1.emoji === tile2.emoji) {
-                    tile1.matched = true;
-                    tile2.matched = true;
-                    score += Math.max(50, 100 - (timeElapsed * 0.5));
-                    scoreEl.textContent = Math.floor(score);
-                    playSound(800, 0.2);
+        // Закрыть все НЕсовпавшие карточки
+        function closeUnmatched() {
+            tiles.forEach(tile => {
+                if (!tile.matched) tile.visible = false;
+            });
+        }
+
+        // Обработка клика - мгновенная!
+        function handleClick(clientX, clientY) {
+            if (!gameRunning || isWaiting || selected.length >= 2) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            
+            const col = Math.floor(x / tileSize);
+            const row = Math.floor((y - 15) / tileSize);
+            
+            if (col >= 0 && col < cols && row >= 0 && row < rows) {
+                const tile = tiles.find(t => t.row === row && t.col === col);
+                if (tile && !tile.matched && !tile.visible) {
+                    // Открываем новую карточку
+                    tile.visible = true;
+                    selected.push({row, col});
+                    draw();
                     
-                    // Сразу закрываем остальные и проверяем победу
-                    tiles.forEach(tile => {
-                        if (!tile.matched) tile.visible = false;
-                    });
-                    selected = [];
-                    isProcessing = false;
-                    updatePairs();
-                    checkWin();
-                } else {
-                    playSound(200, 0.3);
-                    setTimeout(() => {
-                        tiles.forEach(tile => {
-                            if (!tile.matched) tile.visible = false;
-                        });
-                        selected = [];
-                        isProcessing = false;
-                        draw();
-                    }, 400); // Быстрее закрытие
+                    if (selected.length === 2) {
+                        // МГНОВЕННАЯ проверка без задержек!
+                        checkMatchImmediately();
+                    }
                 }
+            }
+        }
+
+        // МГНОВЕННАЯ проверка совпадения
+        function checkMatchImmediately() {
+            const tile1 = tiles.find(t => t.row === selected[0].row && t.col === selected[0].col);
+            const tile2 = tiles.find(t => t.row === selected[1].row && t.col === selected[1].col);
+            
+            if (tile1.emoji === tile2.emoji) {
+                // СОВПАДАЮТ - оставляем открытыми!
+                tile1.matched = true;
+                tile2.matched = true;
+                score += Math.max(50, 100 - (timeElapsed * 0.5));
+                scoreEl.textContent = Math.floor(score);
+                playSound(800, 0.2);
+                selected = [];
+                updatePairs();
+                checkWin();
+            } else {
+                // НЕ совпадают - показываем анимацию 400мс
+                playSound(200, 0.3);
+                isWaiting = true;
+                setTimeout(() => {
+                    closeUnmatched();
+                    selected = [];
+                    isWaiting = false;
+                    draw();
+                }, 400);
             }
         }
 
@@ -263,32 +287,6 @@
                 score += Math.max(500, 1000 - (timeElapsed * 2));
                 scoreEl.textContent = Math.floor(score);
                 endGame();
-            }
-        }
-
-        // Обработка клика (мгновенная реакция)
-        function handleClick(clientX, clientY) {
-            if (!gameRunning || isProcessing || selected.length >= 2) return;
-            
-            const rect = canvas.getBoundingClientRect();
-            const x = clientX - rect.left;
-            const y = clientY - rect.top;
-            
-            const col = Math.floor(x / tileSize);
-            const row = Math.floor((y - 15) / tileSize);
-            
-            if (col >= 0 && col < cols && row >= 0 && row < rows) {
-                const tile = tiles.find(t => t.row === row && t.col === col);
-                if (tile && !tile.matched && !tile.visible) {
-                    tile.visible = true;
-                    selected.push({row, col});
-                    isProcessing = true;
-                    draw();
-                    
-                    if (selected.length === 2) {
-                        setTimeout(checkMatch, 200); // Очень быстро
-                    }
-                }
             }
         }
 
@@ -312,7 +310,7 @@
             timeElapsed = 0;
             gameRunning = true;
             selected = [];
-            isProcessing = false;
+            isWaiting = false;
             scoreEl.textContent = score;
             timeEl.textContent = timeElapsed;
             pairsEl.textContent = '0';
