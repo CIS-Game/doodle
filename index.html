@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конкурс Красоты 👑</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #ff9a9e, #fecfef, #fecfef, #fecfef);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            touch-action: manipulation;
+        }
+        canvas {
+            border: 3px solid #ffd1dc;
+            border-radius: 20px;
+            background: linear-gradient(45deg, #fff0f5, #ffe4e1);
+            box-shadow: 0 10px 30px rgba(255,182,193,0.5);
+            max-width: 100%;
+            max-height: 80vh;
+        }
+        .ui {
+            margin: 10px 0;
+            font-size: 24px;
+            font-weight: bold;
+            color: #c71585;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 28px;
+            color: #dc143c;
+            border: 4px solid #ff69b4;
+        }
+        button {
+            background: #ff69b4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: 0 5px 15px rgba(255,105,180,0.4);
+        }
+        button:hover {
+            background: #ff1493;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui">⭐ Баллы: <span id="score">0</span> | ❤️ Жизни: <span id="lives">3</span></div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="gameOver" class="game-over" style="display: none;">
+        <div>Игра окончена! 💔</div>
+        <div>Финальный счёт: <span id="finalScore">0</span> ⭐</div>
+        <button onclick="restartGame()">Играть снова 👗</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const livesEl = document.getElementById('lives');
+        const gameOverEl = document.getElementById('gameOver');
+        const finalScoreEl = document.getElementById('finalScore');
+
+        // Игровое состояние
+        let score = 0;
+        let lives = 3;
+        let gameRunning = true;
+        let player = { x: 180, y: 500, width: 40, height: 50, speed: 8 };
+        let snowflakes = [];
+        let items = [];
+        let hazards = [];
+        let particles = [];
+
+        // Звуки (мобильная совместимость)
+        function playSound(frequency, duration) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            } catch(e) {}
+        }
+
+        // Эмодзи для игры
+        const beautyItems = ['👗', '👠', '💄', '👑', '🌹', '💍'];
+        const hazardsEmojis = ['🍅', '🗑️', '💥'];
+
+        // Создание снежинок
+        function createSnow() {
+            snowflakes.push({
+                x: Math.random() * canvas.width,
+                y: -10,
+                size: Math.random() * 4 + 2,
+                speed: Math.random() * 2 + 0.5
+            });
+        }
+
+        // Создание предметов
+        function createItem() {
+            if (Math.random() < 0.02) {
+                items.push({
+                    x: Math.random() * (canvas.width - 30),
+                    y: -30,
+                    emoji: beautyItems[Math.floor(Math.random() * beautyItems.length)],
+                    width: 30,
+                    height: 30,
+                    speed: 3 + Math.random() * 2
+                });
+            }
+        }
+
+        // Создание препятствий
+        function createHazard() {
+            if (Math.random() < 0.015) {
+                hazards.push({
+                    x: Math.random() * (canvas.width - 30),
+                    y: -30,
+                    emoji: hazardsEmojis[Math.floor(Math.random() * hazardsEmojis.length)],
+                    width: 30,
+                    height: 30,
+                    speed: 4 + Math.random() * 2
+                });
+            }
+        }
+
+        // Частицы для эффектов
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    life: 30,
+                    maxLife: 30,
+                    color: color
+                });
+            }
+        }
+
+        // Обновление игры
+        function update() {
+            if (!gameRunning) return;
+
+            // Очистка canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Снег
+            snowflakes.forEach((snow, i) => {
+                snow.y += snow.speed;
+                ctx.save();
+                ctx.globalAlpha = 0.6;
+                ctx.font = `${snow.size}px Arial`;
+                ctx.fillText('❄️', snow.x, snow.y);
+                ctx.restore();
+                if (snow.y > canvas.height) snowflakes.splice(i, 1);
+            });
+            if (Math.random() < 0.5) createSnow();
+
+            // Игрок (королева красоты)
+            ctx.font = '40px Arial';
+            ctx.fillText('👸', player.x, player.y + 45);
+
+            // Предметы красоты
+            items.forEach((item, i) => {
+                item.y += item.speed;
+                ctx.font = '30px Arial';
+                ctx.fillText(item.emoji, item.x, item.y + 25);
+
+                // Коллизия с игроком
+                if (player.x < item.x + item.width &&
+                    player.x + player.width > item.x &&
+                    player.y < item.y + item.height &&
+                    player.y + player.height > item.y) {
+                    score += 10;
+                    scoreEl.textContent = score;
+                    createParticles(item.x + 15, item.y + 15, '#ffd700');
+                    playSound(800, 0.2); // Звук успеха
+                    items.splice(i, 1);
+                }
+                if (item.y > canvas.height) items.splice(i, 1);
+            });
+
+            // Препятствия
+            hazards.forEach((hazard, i) => {
+                hazard.y += hazard.speed;
+                ctx.font = '30px Arial';
+                ctx.fillText(hazard.emoji, hazard.x, hazard.y + 25);
+
+                // Коллизия с игроком
+                if (player.x < hazard.x + hazard.width &&
+                    player.x + player.width > hazard.x &&
+                    player.y < hazard.y + hazard.height &&
+                    player.y + player.height > hazard.y) {
+                    lives--;
+                    livesEl.textContent = lives;
+                    createParticles(hazard.x + 15, hazard.y + 15, '#ff4500');
+                    playSound(200, 0.3); // Звук опасности
+                    hazards.splice(i, 1);
+                    if (lives <= 0) endGame();
+                }
+                if (hazard.y > canvas.height) hazards.splice(i, 1);
+            });
+
+            // Частицы
+            particles.forEach((p, i) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                ctx.save();
+                ctx.globalAlpha = p.life / p.maxLife;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 4, 4);
+                ctx.restore();
+                if (p.life <= 0) particles.splice(i, 1);
+            });
+
+            createItem();
+            createHazard();
+
+            requestAnimationFrame(update);
+        }
+
+        // Управление
+        function handleInput(x) {
+            if (!gameRunning) return;
+            player.x = x - player.width / 2;
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+        }
+
+        // Сенсорное и мышиное управление
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            handleInput(touch.clientX - rect.left);
+        });
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            handleInput(touch.clientX - rect.left);
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            handleInput(e.clientX - rect.left);
+        });
+
+        function endGame() {
+            gameRunning = false;
+            finalScoreEl.textContent = score;
+            gameOverEl.style.display = 'block';
+        }
+
+        function restartGame() {
+            score = 0;
+            lives = 3;
+            gameRunning = true;
+            player.x = 180;
+            snowflakes = [];
+            items = [];
+            hazards = [];
+            particles = [];
+            scoreEl.textContent = score;
+            livesEl.textContent = lives;
+            gameOverEl.style.display = 'none';
+            update();
+        }
+
+        // Старт игры
+        update();
+    </script>
+</body>
+</html>
