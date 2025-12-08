@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🦄 Новогодний Единорог</title>
+    <title>🦄 Единорог Прыгун</title>
     <style>
         * {
             margin: 0;
@@ -49,7 +49,7 @@
             max-height: 100vh;
             width: 100%;
             height: 100vh;
-            background: linear-gradient(180deg, #87CEEB 0%, #98D8C8 100%);
+            background: linear-gradient(180deg, #87CEEB 0%, #98D8C8 70%, #228B22 100%);
         }
         .game-over {
             position: fixed;
@@ -94,26 +94,45 @@
             transform: translateY(-2px);
             box-shadow: 0 12px 30px rgba(255,107,107,0.6);
         }
+        .tap-hint {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
     <div class="ui">
         <div class="stat">🎁 <span id="score">0</span></div>
         <div class="stat">❤️ <span id="lives">3</span></div>
+        <div class="stat">🏃 <span id="distance">0</span>м</div>
     </div>
     <canvas id="gameCanvas"></canvas>
     
     <div id="gameOver" class="game-over">
         <h2>🎄 Игра окончена! 🎄</h2>
-        <div class="final-score">Финальный счёт: <span id="finalScore">0</span></div>
+        <div class="final-score">Счёт: <span id="finalScore">0</span></div>
         <button onclick="restartGame()">🎮 Играть снова</button>
     </div>
+
+    <div class="tap-hint">👆 Касайтесь экрана для прыжка!</div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
         const livesEl = document.getElementById('lives');
+        const distanceEl = document.getElementById('distance');
         const gameOverEl = document.getElementById('gameOver');
         const finalScoreEl = document.getElementById('finalScore');
 
@@ -129,79 +148,99 @@
         let gameState = {
             score: 0,
             lives: 3,
-            gameRunning: true
+            distance: 0,
+            gameRunning: true,
+            speed: 4
         };
 
         let unicorn = {
-            x: canvas.width / 2 - 40,
-            y: canvas.height - 180,
+            x: 100,
+            y: canvas.height - 200,
             width: 80,
             height: 80,
-            speed: 12,
-            targetX: canvas.width / 2 - 40
+            vy: 0,
+            gravity: 0.8,
+            jumpPower: -18,
+            groundY: canvas.height - 200,
+            isJumping: false
         };
 
         let snowflakes = [];
         let gifts = [];
         let badItems = [];
+        let obstacles = [];
         let particles = [];
+        let groundOffset = 0;
 
-        // Новогодние эмодзи
-        const goodGifts = ['🎁', '🎄', '⭐', '🔔', '🎅', '❄️', '🎀', '🍭'];
-        const badItemsEmojis = ['💥', '🕳️', '👻', '🌋'];
+        // Эмодзи
+        const goodGifts = ['🎁', '🎄', '⭐', '🔔', '🎀', '🍭'];
+        const badItemsEmojis = ['💥', '🕳️', '👻'];
+        const obstaclesEmojis = ['🎿', '🪵', '❄️'];
 
         // Снег
         function createSnowflake() {
             snowflakes.push({
                 x: Math.random() * canvas.width,
                 y: -10,
-                size: Math.random() * 6 + 3,
-                speedX: (Math.random() - 0.5) * 2,
-                speedY: Math.random() * 3 + 1,
-                opacity: Math.random() * 0.5 + 0.3
+                size: Math.random() * 5 + 2,
+                speedX: (Math.random() - 0.5) * 1.5,
+                speedY: Math.random() * 2 + 1,
+                opacity: Math.random() * 0.4 + 0.2
             });
         }
 
-        // Подарки
+        // Создание объектов
         function createGift() {
-            if (Math.random() < 0.025) {
+            if (Math.random() < 0.02) {
                 gifts.push({
-                    x: Math.random() * (canvas.width - 60),
-                    y: -60,
+                    x: canvas.width + Math.random() * 100,
+                    y: canvas.height - 250 + Math.random() * 100,
                     emoji: goodGifts[Math.floor(Math.random() * goodGifts.length)],
-                    width: 60,
-                    height: 60,
-                    speed: 4 + Math.random() * 3
+                    width: 50,
+                    height: 50,
+                    speed: gameState.speed
                 });
             }
         }
 
-        // Плохие предметы
         function createBadItem() {
             if (Math.random() < 0.015) {
                 badItems.push({
-                    x: Math.random() * (canvas.width - 60),
-                    y: -60,
+                    x: canvas.width + Math.random() * 100,
+                    y: canvas.height - 250 + Math.random() * 80,
                     emoji: badItemsEmojis[Math.floor(Math.random() * badItemsEmojis.length)],
+                    width: 50,
+                    height: 50,
+                    speed: gameState.speed * 1.2
+                });
+            }
+        }
+
+        function createObstacle() {
+            if (Math.random() < 0.025) {
+                obstacles.push({
+                    x: canvas.width + Math.random() * 100,
+                    y: canvas.height - 150,
+                    emoji: obstaclesEmojis[Math.floor(Math.random() * obstaclesEmojis.length)],
                     width: 60,
-                    height: 60,
-                    speed: 5 + Math.random() * 2
+                    height: 100,
+                    speed: gameState.speed
                 });
             }
         }
 
         // Частицы
         function createParticles(x, y, color) {
-            for (let i = 0; i < 12; i++) {
+            for (let i = 0; i < 10; i++) {
                 particles.push({
-                    x: x + 30,
-                    y: y + 30,
-                    vx: (Math.random() - 0.5) * 8,
-                    vy: (Math.random() - 0.5) * 8,
-                    life: 40,
-                    maxLife: 40,
+                    x: x + 25,
+                    y: y + 25,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 30,
+                    maxLife: 30,
                     color: color,
-                    size: Math.random() * 4 + 2
+                    size: Math.random() * 3 + 2
                 });
             }
         }
@@ -223,16 +262,17 @@
             } catch(e) {}
         }
 
-        // Обновление игры
+        // Обновление
         function update() {
             if (!gameState.gameRunning) return;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Фон градиент
+            // Фон
             const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             gradient.addColorStop(0, '#87CEEB');
-            gradient.addColorStop(1, '#98D8C8');
+            gradient.addColorStop(0.7, '#98D8C8');
+            gradient.addColorStop(1, '#228B22');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -247,63 +287,62 @@
                 ctx.textBaseline = 'middle';
                 ctx.fillText('❄️', snow.x, snow.y);
                 ctx.restore();
-                if (snow.y > canvas.height || snow.x < -20 || snow.x > canvas.width + 20) {
-                    snowflakes.splice(i, 1);
-                }
+                if (snow.y > canvas.height) snowflakes.splice(i, 1);
             });
-            if (Math.random() < 0.6) createSnowflake();
+            if (Math.random() < 0.4) createSnowflake();
 
-            // Движение единорога
-            unicorn.x += (unicorn.targetX - unicorn.x) * 0.25;
-            if (Math.abs(unicorn.targetX - unicorn.x) < 2) unicorn.x = unicorn.targetX;
+            // Земля
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+            groundOffset -= gameState.speed;
+            if (groundOffset < -50) groundOffset = 0;
 
-            // Единорог 🦄
+            // Единорог
+            unicorn.vy += unicorn.gravity;
+            unicorn.y += unicorn.vy;
+            if (unicorn.y > unicorn.groundY) {
+                unicorn.y = unicorn.groundY;
+                unicorn.vy = 0;
+            }
+
             ctx.shadowColor = '#ffd700';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 25;
             ctx.font = '80px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('🦄', unicorn.x + unicorn.width/2, unicorn.y + unicorn.height/2);
             ctx.shadowBlur = 0;
 
-            // Подарки
+            // Объекты
             gifts.forEach((gift, i) => {
-                gift.y += gift.speed;
-                ctx.font = '55px Arial';
+                gift.x -= gift.speed;
+                ctx.font = '50px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(gift.emoji, gift.x + gift.width/2, gift.y + gift.height/2);
 
                 // Коллизия
-                if (unicorn.x < gift.x + gift.width &&
-                    unicorn.x + unicorn.width > gift.x &&
-                    unicorn.y < gift.y + gift.height &&
-                    unicorn.y + unicorn.height > gift.y) {
-                    gameState.score += 10;
+                if (Math.abs(gift.x - unicorn.x) < 50 && Math.abs(gift.y - unicorn.y) < 50) {
+                    gameState.score += 20;
                     scoreEl.textContent = gameState.score;
                     createParticles(gift.x, gift.y, '#ffd700');
                     playSound(880, 0.15);
                     gifts.splice(i, 1);
                 }
-                if (gift.y > canvas.height) gifts.splice(i, 1);
+                if (gift.x < -100) gifts.splice(i, 1);
             });
 
-            // Плохие предметы
             badItems.forEach((bad, i) => {
-                bad.y += bad.speed;
-                ctx.font = '55px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
+                bad.x -= bad.speed;
                 ctx.shadowColor = '#ff4444';
                 ctx.shadowBlur = 15;
+                ctx.font = '50px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
                 ctx.fillText(bad.emoji, bad.x + bad.width/2, bad.y + bad.height/2);
                 ctx.shadowBlur = 0;
 
-                // Коллизия
-                if (unicorn.x < bad.x + bad.width &&
-                    unicorn.x + unicorn.width > bad.x &&
-                    unicorn.y < bad.y + bad.height &&
-                    unicorn.y + unicorn.height > bad.y) {
+                if (Math.abs(bad.x - unicorn.x) < 50 && Math.abs(bad.y - unicorn.y) < 50) {
                     gameState.lives--;
                     livesEl.textContent = gameState.lives;
                     createParticles(bad.x, bad.y, '#ff4444');
@@ -311,7 +350,31 @@
                     badItems.splice(i, 1);
                     if (gameState.lives <= 0) endGame();
                 }
-                if (bad.y > canvas.height) badItems.splice(i, 1);
+                if (bad.x < -100) badItems.splice(i, 1);
+            });
+
+            obstacles.forEach((obs, i) => {
+                obs.x -= obs.speed;
+                ctx.shadowColor = '#8B4513';
+                ctx.shadowBlur = 10;
+                ctx.font = '55px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(obs.emoji, obs.x + obs.width/2, obs.y + obs.height/2);
+                ctx.shadowBlur = 0;
+
+                if (unicorn.x < obs.x + obs.width &&
+                    unicorn.x + unicorn.width > obs.x &&
+                    unicorn.y < obs.y + obs.height &&
+                    unicorn.y + unicorn.height > obs.y) {
+                    gameState.lives--;
+                    livesEl.textContent = gameState.lives;
+                    createParticles(obs.x, obs.y, '#ff4444');
+                    playSound(180, 0.3);
+                    obstacles.splice(i, 1);
+                    if (gameState.lives <= 0) endGame();
+                }
+                if (obs.x < -100) obstacles.splice(i, 1);
             });
 
             // Частицы
@@ -323,7 +386,7 @@
                 ctx.globalAlpha = p.life / p.maxLife;
                 ctx.fillStyle = p.color;
                 ctx.shadowColor = p.color;
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 8;
                 ctx.font = `${p.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -332,46 +395,30 @@
                 if (p.life <= 0) particles.splice(i, 1);
             });
 
+            // Игровая логика
+            gameState.distance += gameState.speed * 0.1;
+            gameState.speed += 0.002;
+            distanceEl.textContent = Math.floor(gameState.distance);
+            
             createGift();
             createBadItem();
+            createObstacle();
 
             requestAnimationFrame(update);
         }
 
-        // Свайп управление
-        let touchStartX = 0;
-        let touchStartY = 0;
+        // Простое управление - касание везде = прыжок
+        function jump() {
+            if (!gameState.gameRunning || unicorn.vy < 0) return;
+            unicorn.vy = unicorn.jumpPower;
+            playSound(660, 0.1);
+        }
 
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            touchStartX = touch.clientX;
-            touchStartY = touch.clientY;
-        }, { passive: false });
-
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (!gameState.gameRunning) return;
-            
-            const touch = e.touches[0];
-            const deltaX = touch.clientX - touchStartX;
-            
-            unicorn.targetX = Math.max(0, Math.min(canvas.width - unicorn.width, 
-                unicorn.x + deltaX * 0.8));
-            
-            touchStartX = touch.clientX;
-        }, { passive: false });
-
-        canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-        }, { passive: false });
-
-        // Мышь для десктопа
-        canvas.addEventListener('mousemove', (e) => {
-            if (!gameState.gameRunning) return;
-            const rect = canvas.getBoundingClientRect();
-            unicorn.targetX = Math.max(0, Math.min(canvas.width - unicorn.width, 
-                e.clientX - rect.left - unicorn.width/2));
+        ['touchstart', 'click'].forEach(event => {
+            canvas.addEventListener(event, (e) => {
+                e.preventDefault();
+                jump();
+            }, { passive: false });
         });
 
         function endGame() {
@@ -381,21 +428,23 @@
         }
 
         function restartGame() {
-            gameState = { score: 0, lives: 3, gameRunning: true };
+            gameState = { score: 0, lives: 3, distance: 0, gameRunning: true, speed: 4 };
             unicorn = {
-                x: canvas.width / 2 - 40,
-                y: canvas.height - 180,
+                x: 100,
+                y: canvas.height - 200,
                 width: 80,
                 height: 80,
-                speed: 12,
-                targetX: canvas.width / 2 - 40
+                vy: 0,
+                gravity: 0.8,
+                jumpPower: -18,
+                groundY: canvas.height - 200,
+                isJumping: false
             };
-            snowflakes = [];
-            gifts = [];
-            badItems = [];
-            particles = [];
+            snowflakes = []; gifts = []; badItems = []; obstacles = []; particles = [];
+            groundOffset = 0;
             scoreEl.textContent = 0;
             livesEl.textContent = 3;
+            distanceEl.textContent = 0;
             gameOverEl.style.display = 'none';
             update();
         }
