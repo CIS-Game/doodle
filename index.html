@@ -80,12 +80,12 @@
 <body>
     <div class="ui">
         <div class="stats">⭐ Баллы: <span id="score">0</span></div>
-        <div class="stats">❤️ Жизни: <span id="lives">3</span></div>
-        <div class="stats">⏱️ Время: <span id="time">60</span>с</div>
+        <div class="stats">⏱️ Время: <span id="time">0</span>с</div>
+        <div class="stats">👑 Найдено пар: <span id="pairs">0</span>/24</div>
     </div>
     <canvas id="gameCanvas" width="450" height="550"></canvas>
     <div id="gameOver" class="game-over" style="display: none;">
-        <div>Игра окончена! 💔</div>
+        <div>Победа! 👑✨</div>
         <div>Финальный счёт: <span id="finalScore">0</span> ⭐</div>
         <button onclick="restartGame()">Играть снова 👗</button>
     </div>
@@ -94,15 +94,14 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
-        const livesEl = document.getElementById('lives');
         const timeEl = document.getElementById('time');
+        const pairsEl = document.getElementById('pairs');
         const gameOverEl = document.getElementById('gameOver');
         const finalScoreEl = document.getElementById('finalScore');
 
         // Игровое состояние
         let score = 0;
-        let lives = 3;
-        let timeLeft = 60;
+        let timeElapsed = 0;
         let gameRunning = true;
         let grid = [];
         let selected = [];
@@ -111,6 +110,7 @@
         let rows = 8;
         let tileSize = 60;
         let timer;
+        let totalPairs = (cols * rows) / 2;
 
         // Эмодзи для конкурса красоты
         const beautyEmojis = ['👗', '👠', '💄', '👑', '🌹', '💍', '💅', '⭐', '✨', '💖', '🎀', '👜'];
@@ -122,7 +122,7 @@
             const emojis = [];
             
             // Создаем пары эмодзи
-            for (let i = 0; i < (cols * rows) / 2; i++) {
+            for (let i = 0; i < totalPairs; i++) {
                 const emoji = beautyEmojis[Math.floor(Math.random() * beautyEmojis.length)];
                 emojis.push(emoji, emoji);
             }
@@ -205,26 +205,26 @@
                     ctx.fillRect(x + 3, y + 3, tile.width - 6, tile.height - 6);
                 }
                 
-                // Эмодзи
+                // Эмодзи или звёздочка
                 if (tile.visible || tile.matched) {
                     ctx.font = '48px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(tile.emoji, x + tile.width / 2, y + tile.height / 2);
                 } else {
-                    // Затычка
+                    // Звёздочка ⭐ вместо "?"
                     ctx.fillStyle = 'rgba(255, 182, 193, 0.8)';
                     ctx.fillRect(x + 8, y + 8, tile.width - 16, tile.height - 16);
-                    ctx.fillStyle = '#fff';
-                    ctx.font = '20px Arial';
+                    ctx.fillStyle = '#ffd700';
+                    ctx.font = '40px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText('?', x + tile.width / 2, y + tile.height / 2);
+                    ctx.fillText('⭐', x + tile.width / 2, y + tile.height / 2);
                 }
             });
         }
 
-        // Проверка совпадений
+        // Проверка совпадений (максимум 2 карточки)
         function checkMatch() {
             if (selected.length === 2) {
                 const tile1 = tiles.find(t => t.row === selected[0].row && t.col === selected[0].col);
@@ -234,47 +234,42 @@
                     // Совпадение!
                     tile1.matched = true;
                     tile2.matched = true;
-                    score += 10;
-                    scoreEl.textContent = score;
+                    score += 100 - (timeElapsed * 0.5); // Больше очков = быстрее найдено
+                    scoreEl.textContent = Math.floor(score);
+                    pairsEl.textContent = tiles.filter(t => t.matched).length / 2;
                     playSound(800, 0.3);
                     
-                    // Показываем все пары
-                    setTimeout(() => {
-                        tiles.forEach(tile => {
-                            if (!tile.matched) tile.visible = false;
-                        });
-                        selected = [];
-                        checkWin();
-                    }, 500);
+                    selected = [];
+                    checkWin();
                 } else {
-                    // Не совпадает
-                    lives--;
-                    livesEl.textContent = lives;
+                    // Не совпадает - закрываем через секунду
                     playSound(200, 0.4);
                     setTimeout(() => {
                         tiles.forEach(tile => {
                             if (!tile.matched) tile.visible = false;
                         });
                         selected = [];
-                        if (lives <= 0) endGame();
-                    }, 800);
+                        draw();
+                    }, 1000);
                 }
             }
         }
 
         // Проверка победы
         function checkWin() {
-            const unmatched = tiles.filter(tile => !tile.matched);
-            if (unmatched.length === 0) {
-                score += 50;
-                scoreEl.textContent = score;
+            const matchedCount = tiles.filter(tile => tile.matched).length / 2;
+            pairsEl.textContent = matchedCount;
+            
+            if (matchedCount === totalPairs) {
+                score += 1000 - (timeElapsed * 2); // Бонус за победу
+                scoreEl.textContent = Math.floor(score);
                 endGame();
             }
         }
 
-        // Обработка клика
+        // Обработка клика (максимум 2 открытые карточки)
         function handleClick(clientX, clientY) {
-            if (!gameRunning) return;
+            if (!gameRunning || selected.length >= 2) return;
             
             const rect = canvas.getBoundingClientRect();
             const x = clientX - rect.left;
@@ -288,43 +283,38 @@
                 if (!tile.matched && !tile.visible) {
                     tile.visible = true;
                     selected.push({row, col});
+                    draw();
                     
                     if (selected.length === 2) {
-                        setTimeout(checkMatch, 300);
+                        setTimeout(checkMatch, 600);
                     }
                 }
             }
-            
-            draw();
         }
 
-        // Таймер
+        // Таймер (время растёт)
         function startTimer() {
             timer = setInterval(() => {
-                timeLeft--;
-                timeEl.textContent = timeLeft;
-                if (timeLeft <= 0) {
-                    endGame();
-                }
+                timeElapsed++;
+                timeEl.textContent = timeElapsed;
             }, 1000);
         }
 
         function endGame() {
             gameRunning = false;
             clearInterval(timer);
-            finalScoreEl.textContent = score;
+            finalScoreEl.textContent = Math.floor(score);
             gameOverEl.style.display = 'block';
         }
 
         function restartGame() {
             score = 0;
-            lives = 3;
-            timeLeft = 60;
+            timeElapsed = 0;
             gameRunning = true;
             selected = [];
             scoreEl.textContent = score;
-            livesEl.textContent = lives;
-            timeEl.textContent = timeLeft;
+            timeEl.textContent = timeElapsed;
+            pairsEl.textContent = '0';
             gameOverEl.style.display = 'none';
             clearInterval(timer);
             initGrid();
