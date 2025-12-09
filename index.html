@@ -26,35 +26,12 @@
       justify-content:center;
       align-items:center;
       font-family:var(--font-main);
-      overflow:hidden;
-      position:relative;
-    }
-
-    /* лёгкий снег */
-    .snow{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:0;
-      background-image:
-        radial-gradient(2px 2px at 10% 20%, rgba(255,255,255,0.5) 50%, transparent 51%),
-        radial-gradient(2px 2px at 80% 30%, rgba(255,255,255,0.4) 50%, transparent 51%),
-        radial-gradient(2px 2px at 30% 80%, rgba(255,255,255,0.35) 50%, transparent 51%);
-      background-size:200px 200px;
-      animation:snow 12s linear infinite;
-      opacity:0.4;
-    }
-    @keyframes snow{
-      from { background-position:0 0, 0 0, 0 0; }
-      to   { background-position:0 600px, 0 800px, 0 700px; }
     }
 
     .game{
       width:100%;
       max-width:480px;
       padding:20px;
-      position:relative;
-      z-index:1;
     }
 
     .card{
@@ -66,24 +43,25 @@
     }
 
     h1{
-      font-size:min(7.5vw,32px);
+      font-size:min(7vw,30px);
       margin-bottom:6px;
     }
     .subtitle{
-      font-size:min(4.2vw,17px);
-      opacity:.85;
+      font-size:min(4vw,16px);
+      opacity:.8;
       margin-bottom:18px;
     }
 
-    .score{
-      font-size:min(5.5vw,24px);
-      margin-bottom:4px;
-    }
-    /* Рекорд — главный элемент */
+    /* делаем рекорд основным, очки чуть меньше */
     .best{
       font-size:min(7vw,30px);
       font-weight:800;
-      margin-bottom:18px;
+      margin-bottom:4px;
+    }
+    .score{
+      font-size:min(5vw,21px);
+      opacity:.9;
+      margin-bottom:14px;
     }
 
     .meter{
@@ -113,7 +91,7 @@
     }
 
     .db-label{
-      font-size:min(4.8vw,18px);
+      font-size:min(4.5vw,17px);
       margin-bottom:18px;
     }
 
@@ -121,7 +99,6 @@
       display:flex;
       flex-direction:column;
       gap:var(--gap);
-      margin-bottom:14px;
     }
 
     button{
@@ -143,7 +120,7 @@
     }
 
     .status{
-      margin-top:6px;
+      margin-top:10px;
       font-size:min(3.8vw,15px);
       min-height:1.2em;
       opacity:.85;
@@ -151,20 +128,151 @@
 
     .promo{
       margin-top:18px;
-      font-size:min(3.8vw,15px);
+      font-size:min(3.9vw,15px);
       line-height:1.4;
+      text-align:left;
+      color:#e6ecff;
+      word-break:break-word;
     }
     .promo a{
       color:#ffd166;
       text-decoration:underline;
-      word-break:break-all;
     }
   </style>
 </head>
 <body>
-<div class="snow"></div>
-
 <div class="game">
   <div class="card">
     <h1>😱 CIS-scream</h1>
-    <div class="subtitle">Крикни в микрофон и побей рекорд гром
+    <div class="subtitle">Крикни слово CIS, чтобы побить рекорд</div>
+
+    <div class="best" id="best">Рекорд: 0</div>
+    <div class="score" id="score">Очки: 0</div>
+
+    <div class="meter">
+      <div class="meter-fill" id="meterFill"></div>
+      <div class="meter-peak" id="meterPeak" style="left:0;"></div>
+    </div>
+    <div class="db-label" id="dbLabel">Громкость: 0</div>
+
+    <div class="controls">
+      <button id="startBtn">Старт / Стоп</button>
+      <button class="secondary" id="resetBtn">Сброс рекорда</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="promo">
+      🔊 Кто громче крикнет — 🏆 получит крутой приз!<br>
+      Присылайте скриншоты ✉️ на почту:<br>
+      <a href="mailto:magazine@sovinfosystems.ru">magazine@sovinfosystems.ru</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  let audioContext = null;
+  let analyser = null;
+  let micStream = null;
+  let rafId = null;
+  let running = false;
+
+  const meterFill = document.getElementById('meterFill');
+  const meterPeak = document.getElementById('meterPeak');
+  const dbLabel   = document.getElementById('dbLabel');
+  const scoreEl   = document.getElementById('score');
+  const bestEl    = document.getElementById('best');
+  const statusEl  = document.getElementById('status');
+  const startBtn  = document.getElementById('startBtn');
+  const resetBtn  = document.getElementById('resetBtn');
+
+  let bestScore = 0;
+  let peakPercent = 0;
+
+  async function start() {
+    if (running) { stop(); return; }
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+        video: false
+      });
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(micStream);
+
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+
+      running = true;
+      startBtn.textContent = 'Стоп';
+      statusEl.textContent = 'Крикни CIS максимально громко!';
+
+      scoreEl.textContent = 'Очки: 0';
+      peakPercent = 0;
+      meterPeak.style.left = '0%';
+
+      animate();
+    } catch (err) {
+      statusEl.textContent = 'Нет доступа к микрофону.';
+      console.error(err);
+    }
+  }
+
+  function stop() {
+    running = false;
+    startBtn.textContent = 'Старт / Стоп';
+    if (rafId) cancelAnimationFrame(rafId);
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
+    statusEl.textContent = 'Игра остановлена.';
+  }
+
+  function animate() {
+    if (!running || !analyser) return;
+
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += data[i];
+    const avg = sum / data.length;
+
+    const percent = Math.min(100, (avg / 255) * 100);
+
+    meterFill.style.width = percent + '%';
+    dbLabel.textContent = 'Громкость: ' + Math.round(percent);
+
+    const score = Math.round(percent * 10);
+    scoreEl.textContent = 'Очки: ' + score;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestEl.textContent = 'Рекорд: ' + bestScore;
+    }
+
+    if (percent > peakPercent) {
+      peakPercent = percent;
+      meterPeak.style.left = peakPercent + '%';
+    }
+
+    rafId = requestAnimationFrame(animate);
+  }
+
+  startBtn.addEventListener('click', start);
+  resetBtn.addEventListener('click', () => {
+    bestScore = 0;
+    bestEl.textContent = 'Рекорд: 0';
+    peakPercent = 0;
+    meterPeak.style.left = '0%';
+  });
+</script>
+</body>
+</html>
