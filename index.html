@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport"
         content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-  <title>😱 CIS-scream</title>
+  <title>😱 CIS-Scream</title>
   <style>
     :root {
       --bg: #060821;
@@ -52,7 +52,6 @@
       margin-bottom:18px;
     }
 
-    /* делаем рекорд основным, очки чуть меньше */
     .best{
       font-size:min(7vw,30px);
       font-weight:800;
@@ -99,6 +98,7 @@
       display:flex;
       flex-direction:column;
       gap:var(--gap);
+      margin-bottom:8px;
     }
 
     button{
@@ -115,12 +115,21 @@
     button.secondary{
       background:#3b4ba8;
     }
+    button.small{
+      font-size:min(4vw,15px);
+      padding:9px;
+      background:#1fb57a;
+    }
     button:active{
       transform:scale(.97);
     }
+    button:disabled{
+      opacity:.5;
+      transform:none;
+    }
 
     .status{
-      margin-top:10px;
+      margin-top:4px;
       font-size:min(3.8vw,15px);
       min-height:1.2em;
       opacity:.85;
@@ -130,7 +139,7 @@
       margin-top:18px;
       font-size:min(3.9vw,15px);
       line-height:1.4;
-      text-align:left;
+      text-align:center;
       color:#e6ecff;
       word-break:break-word;
     }
@@ -158,12 +167,14 @@
     <div class="controls">
       <button id="startBtn">Старт / Стоп</button>
       <button class="secondary" id="resetBtn">Сброс рекорда</button>
+      <button class="small" id="saveBtn" disabled>Скачать запись крика</button>
     </div>
 
     <div class="status" id="status"></div>
 
     <div class="promo">
-      🔊 Кто громче крикнет — 🏆 получит крутой приз!<br>
+      🔊 Кто громче крикнет<br>
+      🏆 получит крутой приз!<br><br>
       Присылайте скриншоты ✉️ на почту:<br>
       <a href="mailto:magazine@sovinfosystems.ru">magazine@sovinfosystems.ru</a>
     </div>
@@ -177,6 +188,10 @@
   let rafId = null;
   let running = false;
 
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let lastBlobUrl = null;
+
   const meterFill = document.getElementById('meterFill');
   const meterPeak = document.getElementById('meterPeak');
   const dbLabel   = document.getElementById('dbLabel');
@@ -185,6 +200,7 @@
   const statusEl  = document.getElementById('status');
   const startBtn  = document.getElementById('startBtn');
   const resetBtn  = document.getElementById('resetBtn');
+  const saveBtn   = document.getElementById('saveBtn');
 
   let bestScore = 0;
   let peakPercent = 0;
@@ -192,11 +208,13 @@
   async function start() {
     if (running) { stop(); return; }
     try {
+      // запрос доступа к микрофону
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
         video: false
       });
 
+      // анализ громкости
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(micStream);
 
@@ -204,6 +222,32 @@
       analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0.8;
       source.connect(analyser);
+
+      // запись звука
+      if (typeof MediaRecorder !== 'undefined') {
+        if (lastBlobUrl) {
+          URL.revokeObjectURL(lastBlobUrl);
+          lastBlobUrl = null;
+        }
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(micStream);
+        mediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+        mediaRecorder.onstop = () => {
+          if (recordedChunks.length === 0) return;
+          const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+          lastBlobUrl = URL.createObjectURL(blob);
+          saveBtn.href = lastBlobUrl;
+          saveBtn.download = 'cis-scream.webm';
+          saveBtn.disabled = false;
+          statusEl.textContent = 'Запись готова. Нажми «Скачать запись крика».';
+        };
+        mediaRecorder.start();
+        saveBtn.disabled = true;
+      } else {
+        statusEl.textContent = 'Браузер не поддерживает запись аудио.';
+      }
 
       running = true;
       startBtn.textContent = 'Стоп';
@@ -224,6 +268,11 @@
     running = false;
     startBtn.textContent = 'Старт / Стоп';
     if (rafId) cancelAnimationFrame(rafId);
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();   // завершит запись и создаст файл
+    }
+
     if (micStream) {
       micStream.getTracks().forEach(t => t.stop());
       micStream = null;
@@ -244,7 +293,6 @@
     let sum = 0;
     for (let i = 0; i < data.length; i++) sum += data[i];
     const avg = sum / data.length;
-
     const percent = Math.min(100, (avg / 255) * 100);
 
     meterFill.style.width = percent + '%';
@@ -272,6 +320,13 @@
     bestEl.textContent = 'Рекорд: 0';
     peakPercent = 0;
     meterPeak.style.left = '0%';
+  });
+
+  // кнопка сохранения: она будет превращена в ссылку, когда запись готова
+  saveBtn.addEventListener('click', (e) => {
+    if (saveBtn.disabled || !lastBlobUrl) {
+      e.preventDefault();
+    }
   });
 </script>
 </body>
