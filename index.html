@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport"
         content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-  <title>😱 CIS-scream</title>
+  <title>😱 CIS-Scream</title>
   <style>
     :root {
       --bg: #060821;
@@ -148,12 +148,17 @@
       color:#ffd166;
       text-decoration:underline;
     }
+
+    /* контейнер для плеера */
+    .player-wrap{
+      margin-top:8px;
+    }
   </style>
 </head>
 <body>
 <div class="game">
   <div class="card">
-    <h1>😱 CIS-Scream</h1>
+    <h1>😱 CIS-scream</h1>
     <div class="subtitle">Крикни слово CIS, чтобы побить рекорд</div>
 
     <div class="best" id="best">Рекорд: 0</div>
@@ -172,6 +177,7 @@
     </div>
 
     <div class="status" id="status"></div>
+    <div class="player-wrap" id="playerWrap"></div>
 
     <div class="promo">
       🔊 Кто громче крикнет<br>
@@ -203,6 +209,7 @@
   const startBtn  = document.getElementById('startBtn');
   const resetBtn  = document.getElementById('resetBtn');
   const saveBtn   = document.getElementById('saveBtn');
+  const playerWrap = document.getElementById('playerWrap');
 
   let bestScore = 0;
   let peakPercent = 0;
@@ -233,7 +240,6 @@
         lastBlob = null;
         recordedChunks = [];
 
-        // выбираем подходящий mimeType
         let mimeType = '';
         if (MediaRecorder.isTypeSupported &&
             MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
@@ -268,11 +274,20 @@
           lastBlobUrl = URL.createObjectURL(lastBlob);
           saveBtn.dataset.ext = extension;
           saveBtn.disabled = false;
-          statusEl.textContent = 'Запись готова. Нажми «Скачать запись крика».';
+          statusEl.textContent = 'Запись готова. Нажми «Скачать запись крика» или послушай ниже.';
+
+          // создаём/обновляем плеер для прослушивания
+          playerWrap.innerHTML = '';
+          const audio = document.createElement('audio');
+          audio.id = 'player';
+          audio.controls = true;
+          audio.src = lastBlobUrl;
+          playerWrap.appendChild(audio);
         };
 
         mediaRecorder.start();
         saveBtn.disabled = true;
+        playerWrap.innerHTML = '';
       } else {
         statusEl.textContent = 'Браузер не поддерживает запись аудио.';
       }
