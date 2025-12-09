@@ -1,332 +1,201 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🎭 Emoji Guess Puzzle</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            touch-action: manipulation;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        .container {
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            padding: 30px;
-            max-width: 95vw;
-            max-height: 90vh;
-            text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-        }
-        .header {
-            color: #333;
-            margin-bottom: 25px;
-            font-size: 24px;
-            font-weight: 700;
-        }
-        .score {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            font-size: 18px;
-            font-weight: 600;
-            color: #555;
-        }
-        .emoji-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 15px;
-            margin: 30px 0;
-            padding: 20px;
-            background: linear-gradient(45deg, #f8f9ff, #e8ecff);
-            border-radius: 20px;
-            border: 3px solid #e1e8ff;
-        }
-        .emoji-btn {
-            width: 70px;
-            height: 70px;
-            font-size: 32px;
-            border: none;
-            border-radius: 18px;
-            background: linear-gradient(45deg, #fff, #f0f4ff);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .emoji-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 12px 25px rgba(0,0,0,0.2);
-        }
-        .emoji-btn:active {
-            transform: scale(0.95);
-        }
-        .emoji-btn.correct {
-            background: linear-gradient(45deg, #4ade80, #22c55e);
-            color: white;
-            animation: bounce 0.5s;
-        }
-        .emoji-btn.wrong {
-            background: linear-gradient(45deg, #f87171, #ef4444);
-            color: white;
-            animation: shake 0.3s;
-        }
-        .emoji-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        .hint {
-            font-size: 28px;
-            margin: 25px 0;
-            min-height: 40px;
-            background: linear-gradient(45deg, #ffecd2, #fcb69f);
-            padding: 15px;
-            border-radius: 15px;
-            font-weight: 600;
-            color: #7c2d12;
-        }
-        .progress {
-            width: 100%;
-            height: 12px;
-            background: #e5e7eb;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 20px 0;
-        }
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #4ade80, #22c55e);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-        .game-over {
-            display: none;
-            animation: fadeIn 0.5s;
-        }
-        .game-over.show {
-            display: block;
-        }
-        .restart-btn {
-            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
-            color: white;
-            border: none;
-            padding: 18px 40px;
-            font-size: 20px;
-            font-weight: 700;
-            border-radius: 25px;
-            cursor: pointer;
-            box-shadow: 0 12px 30px rgba(59,130,246,0.4);
-            transition: all 0.2s;
-            margin-top: 20px;
-        }
-        .restart-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 16px 35px rgba(59,130,246,0.5);
-        }
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Emoji Quiz</title>
+
+  <style>
+    :root {
+      --bg: #faf9ff;
+      --text-main: #13406b;
+      --accent: #ff4b5c;
+      --slot-bg: #e3e4ea;
+      --emoji-size: min(14vw, 64px);
+      --gap: min(4vw, 18px);
+      --radius: 18px;
+      --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: var(--font-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+    }
+
+    .game {
+      width: 100%;
+      max-width: 480px;
+      padding: min(6vw, 24px);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: min(5vw, 24px);
+    }
+
+    /* Верхняя панель */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: min(4.2vw, 18px);
+    }
+
+    .lives {
+      display: flex;
+      gap: 6px;
+    }
+    .life {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background:#d3d6de;
+    }
+    .life.active { background:#ff9ba6; }
+
+    .pause-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 2px solid #d3d6de;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    /* Загадка */
+    .riddle-text {
+      text-align: center;
+      font-size: min(7vw, 30px);
+      font-weight: 700;
+    }
+
+    /* Слоты для ответа */
+    .slots {
+      display: flex;
+      justify-content: center;
+      gap: var(--gap);
+      margin-top: 4px;
+    }
+    .slot {
+      width: calc(var(--emoji-size) * 1.1);
+      height: calc(var(--emoji-size) * 1.1);
+      border-radius: 18px;
+      background: var(--slot-bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: var(--emoji-size);
+    }
+
+    /* Панель эмодзи */
+    .emoji-grid {
+      margin-top: min(6vw, 26px);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--gap);
+      justify-items: center;
+    }
+    .emoji-btn {
+      width: var(--emoji-size);
+      height: var(--emoji-size);
+      border-radius: 20%;
+      border: none;
+      background: #ffffff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+      font-size: var(--emoji-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .1s ease, box-shadow .1s ease;
+    }
+    .emoji-btn:active {
+      transform: scale(.92);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+    }
+
+    /* Нижние кнопки */
+    .bottom-bar {
+      margin-top: auto;
+      display: flex;
+      justify-content: center;
+      gap: var(--gap);
+    }
+    .primary-btn {
+      flex: 1;
+      max-width: 180px;
+      padding: 10px 14px;
+      border-radius: 16px;
+      border: none;
+      font-size: min(4vw, 16px);
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-5050 { background: #ff4b5c; }
+    .btn-hint { background: #b546ff; }
+  </style>
 </head>
+
 <body>
-    <div class="container">
-        <div class="header">🎭 Emoji Guess Puzzle</div>
-        
-        <div class="score">
-            <span>⭐ Очки: <span id="score">0</span></div>
-            <span>⏱️ Уровень: <span id="level">1</span></span>
-        </div>
-
-        <div class="progress">
-            <div class="progress-bar" id="progress"></div>
-        </div>
-
-        <div class="hint" id="hint">Нажмите на эмодзи!</div>
-
-        <div class="emoji-grid" id="emojiGrid"></div>
-
-        <div class="game-over" id="gameOver">
-            <h2>🎉 Поздравляем!</h2>
-            <p>Вы прошли <span id="finalLevel">1</span> уровень!</p>
-            <p>Финальный счёт: <span id="finalScore">0</span> ⭐</p>
-            <button class="restart-btn" onclick="startGame()">🎮 Новая игра</button>
-        </div>
+<div class="game">
+  <!-- Верхняя панель -->
+  <div class="top-bar">
+    <div class="level">Level 1</div>
+    <div class="lives">
+      <div class="life active"></div>
+      <div class="life active"></div>
+      <div class="life active"></div>
     </div>
+    <div class="pause-btn">⏸</div>
+  </div>
 
-    <script>
-        const emojis = ['😀','😎','🥰','🤩','😍','🥳','🤪','😜','😘','🤗','🤭','🙃','😊','🙂','🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','🥶','😵','🤒','🤕','🤢','🤮','🤧','😷','🤠','🥸','🤡','👻','👽','👾','🤖','💩','👹','👺','👸','🤴','👳‍♀️','👲','🧓','🧔','🧔‍♀️','🧓','👴','👵','🤶','🧙‍♀️','🧟‍♀️','🧟','🧟‍♂️','🧛‍♂️','🧟‍♀️','🧟‍♂️','🧛','🧛‍♀️','😈','👿','👹','👺','💀','☠️','👻','👽','👾','🤖','💩','🧟‍♀️','🧟‍♂️','🧟','🧟‍♀️','🧟‍♂️','🧟‍♀️'];
+  <!-- Слово‑загадка -->
+  <div class="riddle-text" id="riddleTitle">Lion King</div>
 
-        let gameState = {
-            score: 0,
-            level: 1,
-            currentHint: '',
-            correctEmoji: '',
-            selectedEmojis: [],
-            totalLevels: 10
-        };
+  <!-- Пустые ячейки для эмодзи -->
+  <div class="slots" id="answerSlots">
+    <!-- генерируются из JS -->
+  </div>
 
-        const grid = document.getElementById('emojiGrid');
-        const hintEl = document.getElementById('hint');
-        const scoreEl = document.getElementById('score');
-        const levelEl = document.getElementById('level');
-        const progressEl = document.getElementById('progress');
-        const gameOverEl = document.getElementById('gameOver');
-        const finalScoreEl = document.getElementById('finalScore');
-        const finalLevelEl = document.getElementById('finalLevel');
+  <!-- Набор эмодзи -->
+  <div class="emoji-grid" id="emojiGrid">
+    <!-- кнопки‑эмодзи создаются из JS -->
+  </div>
 
-        function generatePuzzle() {
-            // Выбираем правильный эмодзи
-            gameState.correctEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-            
-            // Создаем 24 случайных эмодзи (5 правильных среди них)
-            gameState.selectedEmojis = [];
-            const correctCount = 5;
-            
-            // Добавляем правильные эмодзи
-            for (let i = 0; i < correctCount; i++) {
-                gameState.selectedEmojis.push(gameState.correctEmoji);
-            }
-            
-            // Заполняем остальное случайными
-            while (gameState.selectedEmojis.length < 25) {
-                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                if (randomEmoji !== gameState.correctEmoji || gameState.selectedEmojis.length < correctCount) {
-                    gameState.selectedEmojis.push(randomEmoji);
-                }
-            }
-            
-            // Перемешиваем
-            shuffleArray(gameState.selectedEmojis);
-        }
+  <!-- Нижние кнопки -->
+  <div class="bottom-bar">
+    <button class="primary-btn btn-5050">50/50</button>
+    <button class="primary-btn btn-hint">HINT</button>
+  </div>
+</div>
 
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-        }
+<script>
+  // Один уровень с правильной последовательностью эмодзи
+  const level = {
+    title: "Lion King",
+    answer: ["🦁","👑"],
+    // остальные, лишние эмодзи
+    pool: ["🧑‍🚒","🐸","🐼","🎁","🍰","🌸","☔"]
+  };
 
-        function renderGrid() {
-            grid.innerHTML = '';
-            gameState.selectedEmojis.forEach((emoji, index) => {
-                const btn = document.createElement('button');
-                btn.className = 'emoji-btn';
-                btn.textContent = emoji;
-                btn.dataset.emoji = emoji;
-                btn.dataset.index = index;
-                btn.addEventListener('touchstart', handleGuess);
-                btn.addEventListener('click', handleGuess);
-                grid.appendChild(btn);
-            });
-        }
+  const slotsWrap = document.getElementById("answerSlots");
+  const grid = document.getElementById("emojiGrid");
+  const riddleTitle = document.getElementById("riddleTitle");
 
-        function handleGuess(e) {
-            e.preventDefault();
-            const btn = e.currentTarget;
-            const guess = btn.dataset.emoji;
-            
-            if (guess === gameState.correctEmoji) {
-                // Правильно!
-                btn.classList.add('correct');
-                gameState.score += 100;
-                scoreEl.textContent = gameState.score;
-                
-                setTimeout(() => {
-                    nextLevel();
-                }, 800);
-            } else {
-                // Неправильно
-                btn.classList.add('wrong');
-                setTimeout(() => {
-                    btn.classList.remove('wrong');
-                }, 300);
-            }
-        }
-
-        function nextLevel() {
-            gameState.level++;
-            levelEl.textContent = gameState.level;
-            
-            updateProgress();
-            
-            if (gameState.level > gameState.totalLevels) {
-                endGame();
-                return;
-            }
-            
-            generatePuzzle();
-            renderGrid();
-            hintEl.textContent = `Уровень ${gameState.level}: Найдите ${gameState.correctEmoji}`;
-        }
-
-        function updateProgress() {
-            const progress = (gameState.level - 1) / gameState.totalLevels * 100;
-            progressEl.style.width = progress + '%';
-        }
-
-        function startGame() {
-            gameState = {
-                score: 0,
-                level: 1,
-                currentHint: '',
-                correctEmoji: '',
-                selectedEmojis: [],
-                totalLevels: 10
-            };
-            
-            scoreEl.textContent = 0;
-            levelEl.textContent = 1;
-            progressEl.style.width = '0%';
-            gameOverEl.classList.remove('show');
-            
-            generatePuzzle();
-            renderGrid();
-            hintEl.textContent = `Уровень 1: Найдите ${gameState.correctEmoji}`;
-        }
-
-        function endGame() {
-            finalScoreEl.textContent = gameState.score;
-            finalLevelEl.textContent = gameState.level - 1;
-            gameOverEl.classList.add('show');
-        }
-
-        // Старт игры
-        startGame();
-
-        // Предотвращаем зум на iOS
-        document.addEventListener('gesturestart', function (e) {
-            e.preventDefault();
-        });
-        document.addEventListener('gesturechange', function (e) {
-            e.preventDefault();
-        });
-    </script>
-</body>
-</html>
+  // Подготовка уровня
+  function initLevel() {
+    riddleTitle.textContent = level.title;
+    slotsWrap
