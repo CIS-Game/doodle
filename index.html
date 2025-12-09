@@ -126,6 +126,7 @@
     button:disabled{
       opacity:.5;
       transform:none;
+      cursor:default;
     }
 
     .status{
@@ -191,6 +192,7 @@
   let mediaRecorder = null;
   let recordedChunks = [];
   let lastBlobUrl = null;
+  let lastBlob = null;
 
   const meterFill = document.getElementById('meterFill');
   const meterPeak = document.getElementById('meterPeak');
@@ -208,7 +210,6 @@
   async function start() {
     if (running) { stop(); return; }
     try {
-      // запрос доступа к микрофону
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
         video: false
@@ -229,17 +230,20 @@
           URL.revokeObjectURL(lastBlobUrl);
           lastBlobUrl = null;
         }
+        lastBlob = null;
         recordedChunks = [];
+
         mediaRecorder = new MediaRecorder(micStream);
         mediaRecorder.ondataavailable = e => {
           if (e.data.size > 0) recordedChunks.push(e.data);
         };
         mediaRecorder.onstop = () => {
           if (recordedChunks.length === 0) return;
-          const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-          lastBlobUrl = URL.createObjectURL(blob);
-          saveBtn.href = lastBlobUrl;
-          saveBtn.download = 'cis-scream.webm';
+          lastBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+          if (lastBlobUrl) {
+            URL.revokeObjectURL(lastBlobUrl);
+          }
+          lastBlobUrl = URL.createObjectURL(lastBlob);
           saveBtn.disabled = false;
           statusEl.textContent = 'Запись готова. Нажми «Скачать запись крика».';
         };
@@ -270,7 +274,7 @@
     if (rafId) cancelAnimationFrame(rafId);
 
     if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();   // завершит запись и создаст файл
+      mediaRecorder.stop();   // завершает запись и вызывает onstop
     }
 
     if (micStream) {
@@ -322,11 +326,18 @@
     meterPeak.style.left = '0%';
   });
 
-  // кнопка сохранения: она будет превращена в ссылку, когда запись готова
+  // Загрузка записи крика
   saveBtn.addEventListener('click', (e) => {
-    if (saveBtn.disabled || !lastBlobUrl) {
-      e.preventDefault();
-    }
+    if (!lastBlob) return;
+
+    const url = lastBlobUrl || URL.createObjectURL(lastBlob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'cis-scream.webm';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   });
 </script>
 </body>
