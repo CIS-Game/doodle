@@ -1,2 +1,2 @@
-# doodle
-Найди дубль
+# scream
+😱 CIS-Scream
